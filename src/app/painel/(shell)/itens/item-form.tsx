@@ -1,6 +1,7 @@
 "use client";
 
 import { PlusIcon, Trash2Icon, XIcon } from "lucide-react";
+import type React from "react";
 import { useState } from "react";
 import { ActionForm } from "@/components/action-form";
 import { ImageUploader } from "@/components/image-uploader";
@@ -23,6 +24,32 @@ import { cn } from "@/lib/utils";
 import { saveItem } from "../../actions";
 
 type VariationRow = { key: number; group_name: string; label: string; price: string };
+
+// Grupo opcional: fica recolhido até a pessoa precisar (ou já ter dados nele).
+function Optional({
+  title,
+  hint,
+  open,
+  children,
+}: {
+  title: string;
+  hint: string;
+  open: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <details open={open} className="group border-b last:border-b-0">
+      <summary className="flex min-h-14 cursor-pointer list-none items-center gap-3 px-4 [&::-webkit-details-marker]:hidden">
+        <span className="flex flex-1 flex-col">
+          <span className="text-sm font-medium">{title}</span>
+          <span className="text-xs text-muted-foreground">{hint}</span>
+        </span>
+        <PlusIcon className="size-4 text-muted-foreground transition-transform group-open:rotate-45" />
+      </summary>
+      <div className="grid gap-4 px-4 pb-4">{children}</div>
+    </details>
+  );
+}
 
 const check = "size-4 accent-foreground";
 
@@ -139,8 +166,8 @@ export function ItemForm({
             <label
               key={value}
               className={cn(
-                "flex cursor-pointer items-center justify-center rounded-lg border px-3 py-2.5 text-sm font-medium",
-                type === value ? "border-foreground bg-muted" : "text-muted-foreground",
+                "flex h-10 cursor-pointer items-center justify-center rounded-md border px-3 text-sm",
+                type === value ? "border-foreground bg-foreground text-background" : "bg-background text-muted-foreground",
               )}
             >
               <input
@@ -199,37 +226,9 @@ export function ItemForm({
       </label>
 
       {!onRequest && (
-        <>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Preço" htmlFor="price">
-              <MoneyInput
-                id="price"
-                name="price"
-                placeholder="0,00"
-                value={price}
-                onValueChange={setPrice}
-              />
-            </Field>
-            <Field label="Preço promocional" htmlFor="promo_price" hint="Opcional. Aparece riscando o preço.">
-              <MoneyInput
-                id="promo_price"
-                name="promo_price"
-                placeholder="0,00"
-                value={promo}
-                onValueChange={setPromo}
-              />
-            </Field>
-          </div>
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              name="price_is_from"
-              defaultChecked={item?.price_is_from ?? false}
-              className={check}
-            />
-            Mostrar como “a partir de”
-          </label>
-        </>
+        <Field label="Preço" htmlFor="price">
+          <MoneyInput id="price" name="price" placeholder="0,00" value={price} onValueChange={setPrice} />
+        </Field>
       )}
 
       {type === "service" && (
@@ -254,64 +253,29 @@ export function ItemForm({
         Disponível (desmarque para mostrar como esgotado)
       </label>
 
-      <fieldset className="grid gap-4 rounded-lg border p-3">
-        <legend className="px-1 text-sm font-medium">Gestão (só você vê)</legend>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Custo" htmlFor="cost" hint="Quanto você gasta para ter este item.">
-            <MoneyInput id="cost" name="cost" placeholder="0,00" value={cost} onValueChange={setCost} />
-          </Field>
-          <div className="grid content-start gap-1.5">
-            <span className="text-sm font-medium">Margem</span>
-            <p
-              aria-live="polite"
-              className={cn(
-                "flex h-10 items-center rounded-lg bg-muted px-3 text-sm",
-                margin != null && margin < 0 && "text-destructive",
-              )}
-            >
-              {margin == null
-                ? "Informe preço e custo"
-                : `${margin}% · ${formatBRL(profit!)} por venda`}
-            </p>
-          </div>
-          <Field label="Estoque atual" htmlFor="stock_quantity" hint="Deixe vazio se não controla estoque.">
-            <IntegerInput
-              id="stock_quantity"
-              name="stock_quantity"
-              placeholder="Não controlo"
-              defaultValue={internal?.stock_quantity?.toString() ?? ""}
-            />
-          </Field>
-          <Field label="Estoque mínimo" htmlFor="stock_min" hint="Abaixo disso, avisamos no início do painel.">
-            <IntegerInput
-              id="stock_min"
-              name="stock_min"
-              placeholder="Ex.: 5"
-              defaultValue={internal?.stock_min?.toString() ?? ""}
-            />
-          </Field>
-        </div>
-        <Field
-          label="Curva ABC"
-          htmlFor="abc_class"
-          hint="A: os que mais vendem ou dão lucro. B: intermediários. C: pouco relevantes."
-        >
-          <select
-            id="abc_class"
-            name="abc_class"
-            defaultValue={internal?.abc_class ?? ""}
-            className={selectClass}
+      <div className="overflow-hidden rounded-lg border">
+        <p className="eyebrow border-b bg-muted/40 px-4 py-2">Opcional</p>
+        {!onRequest && (
+          <Optional
+            title="Promoção e “a partir de”"
+            hint="Preço de/por com selo"
+            open={Boolean(item?.promo_price_cents != null || item?.price_is_from)}
           >
-            <option value="">Não classificado</option>
-            <option value="A">A — mais importantes</option>
-            <option value="B">B — intermediários</option>
-            <option value="C">C — menos importantes</option>
-          </select>
+        <Field label="Preço promocional" htmlFor="promo_price" hint="Aparece riscando o preço normal, com selo de desconto.">
+          <MoneyInput id="promo_price" name="promo_price" placeholder="0,00" value={promo} onValueChange={setPromo} />
         </Field>
-      </fieldset>
-
-      <fieldset className="grid gap-3 rounded-lg border p-3">
-        <legend className="px-1 text-sm font-medium">Variações</legend>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            name="price_is_from"
+            defaultChecked={item?.price_is_from ?? false}
+            className={check}
+          />
+          Mostrar como “a partir de”
+        </label>
+          </Optional>
+        )}
+        <Optional title="Variações" hint="Sabor, tamanho, cor" open={variations.length > 0}>
         <p className="text-xs text-muted-foreground">
           Ex.: tipo “Tamanho”, opção “M”. O preço é opcional e substitui o do item.
         </p>
@@ -377,7 +341,66 @@ export function ItemForm({
             Adicionar variação
           </Button>
         </div>
-      </fieldset>
+        </Optional>
+        <Optional
+          title="Custo e estoque"
+          hint="Só você vê"
+          open={Boolean(internal && (internal.cost_cents != null || internal.stock_quantity != null || internal.abc_class))}
+        >
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Custo" htmlFor="cost" hint="Quanto você gasta para ter este item.">
+            <MoneyInput id="cost" name="cost" placeholder="0,00" value={cost} onValueChange={setCost} />
+          </Field>
+          <Field label="Estoque atual" htmlFor="stock_quantity" hint="Deixe vazio se não controla estoque.">
+            <IntegerInput
+              id="stock_quantity"
+              name="stock_quantity"
+              placeholder="Não controlo"
+              defaultValue={internal?.stock_quantity?.toString() ?? ""}
+            />
+          </Field>
+          <Field label="Estoque mínimo" htmlFor="stock_min" hint="Abaixo disso, avisamos no início do painel.">
+            <IntegerInput
+              id="stock_min"
+              name="stock_min"
+              placeholder="Ex.: 5"
+              defaultValue={internal?.stock_min?.toString() ?? ""}
+            />
+          </Field>
+        </div>
+        <dl className="grid grid-cols-2 rounded-md border">
+          <div className="flex flex-col gap-0.5 border-r p-3">
+            <dt className="eyebrow text-[10px]">Lucro por venda</dt>
+            <dd className={cn("font-mono text-lg", profit != null && profit < 0 ? "text-destructive" : "text-success")}>
+              {profit == null ? "—" : `${profit >= 0 ? "+" : ""}${formatBRL(profit)}`}
+            </dd>
+          </div>
+          <div className="flex flex-col gap-0.5 p-3">
+            <dt className="eyebrow text-[10px]">Margem</dt>
+            <dd className={cn("font-mono text-lg", margin != null && margin < 0 && "text-destructive")}>
+              {margin == null ? "—" : `${margin}%`}
+            </dd>
+          </div>
+        </dl>
+        <Field
+          label="Curva ABC"
+          htmlFor="abc_class"
+          hint="A: os que mais vendem ou dão lucro. B: intermediários. C: pouco relevantes."
+        >
+          <select
+            id="abc_class"
+            name="abc_class"
+            defaultValue={internal?.abc_class ?? ""}
+            className={selectClass}
+          >
+            <option value="">Não classificado</option>
+            <option value="A">A — mais importantes</option>
+            <option value="B">B — intermediários</option>
+            <option value="C">C — menos importantes</option>
+          </select>
+        </Field>
+        </Optional>
+      </div>
     </ActionForm>
   );
 }

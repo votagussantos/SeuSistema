@@ -1,34 +1,36 @@
 import { durationLabel, ItemPrice } from "@/components/catalogo/item-price";
 import { ItemTrigger } from "@/components/catalogo/item-trigger";
-import { ItemPhoto, type LayoutProps } from "./shared";
+import { ItemPhoto, SoldOut, type LayoutProps } from "./shared";
 
-// Fotos grandes: um cartão por linha no celular, dois em telas largas.
+// Fotos grandes em cartões com fio, um por linha no celular e dois em telas largas.
 export function LayoutDestaque({ slug, items }: LayoutProps) {
   return (
-    <ul className="grid gap-5 sm:grid-cols-2">
+    <ul className="grid gap-4 sm:grid-cols-2">
       {items.map((item) => (
         <ItemTrigger
           key={item.id}
           slug={slug}
           item={item}
-          className="flex h-full w-full flex-col overflow-hidden rounded-3xl bg-(--c-text)/5 text-left transition-transform active:scale-[0.99]"
+          className="flex h-full w-full flex-col overflow-hidden rounded-xl border border-(--c-text)/15 text-left"
         >
-          <ItemPhoto item={item} className="aspect-[4/3] w-full" />
+          <ItemPhoto item={item} className="aspect-[16/10] w-full" />
           <span className="flex flex-1 flex-col gap-2 p-4">
-            <span className="text-lg leading-snug font-semibold">{item.name}</span>
+            <span className="flex items-baseline justify-between gap-3">
+              <span className="text-lg leading-snug font-semibold tracking-tight">{item.name}</span>
+              <span className="shrink-0 text-[15px]">
+                {item.available ? <ItemPrice item={item} /> : <SoldOut />}
+              </span>
+            </span>
             {item.description && (
               <span className="line-clamp-2 text-sm opacity-70">{item.description}</span>
             )}
-            <span className="mt-auto flex items-center justify-between gap-3 pt-2">
-              <span className="text-base">
-                <ItemPrice item={item} />
-                {item.durationMinutes != null && (
-                  <span className="text-sm opacity-70"> · {durationLabel(item.durationMinutes)}</span>
-                )}
+            <span className="mt-auto flex items-center justify-between gap-3 border-t border-(--c-text)/12 pt-3">
+              <span className="font-mono text-[11px] uppercase opacity-60">
+                {item.durationMinutes != null ? durationLabel(item.durationMinutes) : ""}
               </span>
               {item.available && (
-                <span className="shrink-0 rounded-full bg-(--c-primary) px-4 py-2 text-sm font-semibold text-(--c-on-primary)">
-                  Ver detalhes
+                <span className="rounded-md bg-(--c-primary) px-3.5 py-2 text-sm font-medium text-(--c-on-primary)">
+                  Escolher
                 </span>
               )}
             </span>

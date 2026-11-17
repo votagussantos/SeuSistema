@@ -2,6 +2,7 @@
 
 import { useState, type ComponentProps } from "react";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 
 // Campos que formatam o valor enquanto a pessoa digita. Todos enviam o texto já
 // formatado; o servidor normaliza e valida de novo.
@@ -30,11 +31,12 @@ export function formatMoneyDigits(raw: string) {
 export function MoneyInput({
   value,
   onValueChange,
+  className,
   ...props
 }: Base & { value: string; onValueChange: (value: string) => void }) {
   return (
     <div className="relative">
-      <span className="pointer-events-none absolute inset-y-0 left-2.5 flex items-center text-sm text-muted-foreground">
+      <span className="pointer-events-none absolute inset-y-0 left-2.5 flex items-center font-mono text-xs text-muted-foreground">
         R$
       </span>
       <Input
@@ -43,7 +45,7 @@ export function MoneyInput({
         autoComplete="off"
         value={value}
         onChange={(event) => onValueChange(formatMoneyDigits(event.target.value))}
-        className="pl-9"
+        className={cn("pl-9 font-mono", className)}
       />
     </div>
   );

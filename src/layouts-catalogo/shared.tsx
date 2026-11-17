@@ -21,7 +21,7 @@ export function ItemPhoto({
 }) {
   const percent = discount(item);
   return (
-    <span className={`relative block overflow-hidden bg-(--c-text)/8 ${className}`}>
+    <span className={`relative block overflow-hidden bg-(--c-text)/[0.06] ${className}`}>
       {item.images.length > 0 && (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -32,13 +32,8 @@ export function ItemPhoto({
           className={`size-full object-cover ${item.available ? "" : "opacity-40 grayscale"}`}
         />
       )}
-      {badges && !item.available && (
-        <span className="absolute inset-x-0 bottom-0 bg-(--c-text) py-1 text-center text-xs font-semibold text-(--c-bg)">
-          Esgotado
-        </span>
-      )}
       {badges && item.available && percent && (
-        <span className="absolute top-2 left-2 rounded-full bg-(--c-primary) px-2 py-0.5 text-xs font-semibold text-(--c-on-primary)">
+        <span className="absolute top-2 left-2 rounded-sm bg-(--c-primary) px-1.5 py-0.5 font-mono text-[11px] text-(--c-on-primary)">
           −{percent}%
         </span>
       )}
@@ -51,9 +46,13 @@ export function AddHint({ className = "" }: { className?: string }) {
   return (
     <span
       aria-hidden
-      className={`flex size-9 shrink-0 items-center justify-center rounded-full bg-(--c-primary) text-(--c-on-primary) shadow-sm ${className}`}
+      className={`flex size-9 shrink-0 items-center justify-center rounded-md bg-(--c-primary) text-(--c-on-primary) ${className}`}
     >
-      <PlusIcon className="size-5" />
+      <PlusIcon className="size-4" />
     </span>
   );
+}
+
+export function SoldOut() {
+  return <span className="font-mono text-[11px] uppercase opacity-60">Esgotado</span>;
 }

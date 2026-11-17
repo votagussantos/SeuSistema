@@ -15,12 +15,13 @@ export const metadata: Metadata = { title: "Entrar" };
 export default function EntrarPage() {
   return (
     <main className="flex flex-1 flex-col items-center justify-center gap-6 bg-muted/40 px-4 py-12">
-      <Link href="/" className="text-lg font-semibold tracking-tight">
+      <Link href="/" className="flex items-center gap-2.5 font-semibold tracking-tight">
+        <span aria-hidden className="size-5 rounded-[5px] bg-foreground" />
         SeuSistema
       </Link>
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle className="text-xl">Entrar ou criar conta</CardTitle>
+          <CardTitle className="text-xl tracking-tight">Entrar ou criar conta</CardTitle>
           <CardDescription>Sem senha. Se for seu primeiro acesso, a conta é criada na hora.</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-5">
@@ -34,9 +35,9 @@ export default function EntrarPage() {
             </Button>
           </form>
 
-          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+          <div className="eyebrow flex items-center gap-3">
             <span className="h-px flex-1 bg-border" />
-            ou receba um link por e-mail
+            ou link por e-mail
             <span className="h-px flex-1 bg-border" />
           </div>
 

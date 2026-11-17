@@ -17,36 +17,58 @@ export function SegmentPicker({
   value: string;
   onChange: (id: string) => void;
 }) {
+  const selected = segments.find((segment) => segment.id === value);
   return (
     <fieldset className="grid gap-4">
       <legend className="mb-1 text-sm font-medium">Qual é o seu segmento?</legend>
-      <input type="hidden" name="segment" value={value} />
       {groups.map((group) => (
         <div key={group.id} className="grid gap-2">
-          <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-            {group.title}
-          </p>
-          <div className="grid gap-2 sm:grid-cols-2">
+          <p className="eyebrow">{group.title}</p>
+          <div className="overflow-hidden rounded-lg border bg-background">
             {segments
               .filter((segment) => segment.group === group.id)
               .map((segment) => (
-                <button
+                <label
                   key={segment.id}
-                  type="button"
-                  aria-pressed={value === segment.id}
-                  onClick={() => onChange(segment.id)}
                   className={cn(
-                    "rounded-xl border p-3 text-left transition-colors hover:bg-muted/60",
-                    value === segment.id && "border-foreground bg-muted ring-1 ring-foreground",
+                    "flex min-h-14 cursor-pointer items-center gap-3 border-b px-4 py-2 last:border-b-0 hover:bg-muted/40",
+                    value === segment.id && "bg-muted/60 shadow-[inset_2px_0_0_var(--foreground)]",
                   )}
                 >
-                  <span className="block text-sm font-medium">{segment.name}</span>
-                  <span className="block text-xs text-muted-foreground">{segment.hint}</span>
-                </button>
+                  <input
+                    type="radio"
+                    name="segment"
+                    value={segment.id}
+                    checked={value === segment.id}
+                    onChange={() => onChange(segment.id)}
+                    className="size-4 accent-foreground"
+                  />
+                  <span className="flex min-w-0 flex-1 flex-col">
+                    <span className={cn("text-sm", value === segment.id && "font-medium")}>
+                      {segment.name}
+                    </span>
+                    <span className="text-xs text-muted-foreground">{segment.hint}</span>
+                  </span>
+                  {segment.categories.length > 0 && (
+                    <span className="font-mono text-[11px] text-muted-foreground">
+                      {segment.categories.length} CAT.
+                    </span>
+                  )}
+                </label>
               ))}
           </div>
         </div>
       ))}
+      {selected && selected.categories.length > 0 && (
+        <div className="grid gap-1 border-t pt-4">
+          <p className="eyebrow">Já vem pronto</p>
+          <p className="font-mono text-xs leading-relaxed text-muted-foreground">
+            {[...new Set(selected.categories.map((path) => path[0]))].join(" · ")}
+            <br />
+            {selected.items.length} {selected.noun.plural} sugeridos
+          </p>
+        </div>
+      )}
     </fieldset>
   );
 }

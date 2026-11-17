@@ -756,3 +756,55 @@ export async function deleteItemImage(formData: FormData) {
   if (data) await supabase.storage.from(MEDIA_BUCKET).remove([data.path]);
   refresh(catalog.slug);
 }
+
+// ---------------------------------------------------------------------------
+// Edição rápida na lista
+// ---------------------------------------------------------------------------
+
+export async function updateItemPrice(itemId: string, price: string): Promise<ActionState> {
+  const catalog = await requireCatalog();
+  const id = uuid.safeParse(itemId);
+  if (!id.success) return { error: "Item inválido." };
+  const cents = parseBRL(price.trim());
+  if (cents === null || Number.isNaN(cents)) return { error: "Preço inválido. Ex.: 49,90" };
+  if (cents > 100_000_000) return { error: "Preço muito alto." };
+
+  const supabase = await createClient();
+  const { data: item } = await supabase
+    .from("items")
+    .select("promo_price_cents")
+    .eq("id", id.data)
+    .eq("catalog_id", catalog.id)
+    .maybeSingle();
+  if (!item) return { error: "Item não encontrado." };
+  if (item.promo_price_cents != null && item.promo_price_cents >= cents) {
+    return { error: "Esse item tem promoção maior que o novo preço. Ajuste no item." };
+  }
+
+  const { error } = await supabase
+    .from("items")
+    .update({ price_cents: cents, price_on_request: false })
+    .eq("id", id.data)
+    .eq("catalog_id", catalog.id);
+  if (error) return { error: dbMessage(error) };
+
+  refresh(catalog.slug);
+  return { ok: "Preço atualizado." };
+}
+
+export async function setItemAvailable(itemId: string, available: boolean): Promise<ActionState> {
+  const catalog = await requireCatalog();
+  const id = uuid.safeParse(itemId);
+  if (!id.success || typeof available !== "boolean") return { error: "Item inválido." };
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("items")
+    .update({ available })
+    .eq("id", id.data)
+    .eq("catalog_id", catalog.id);
+  if (error) return { error: dbMessage(error) };
+
+  refresh(catalog.slug);
+  return { ok: available ? "Voltou à venda." : "Venda pausada." };
+}

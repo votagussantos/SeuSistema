@@ -32,10 +32,10 @@ export function SearchInput() {
       type="search"
       value={query}
       onChange={(event) => setQuery(event.target.value)}
-      placeholder="Buscar no catálogo"
+      placeholder="Buscar"
       aria-label="Buscar no catálogo"
       enterKeyHint="search"
-      className="h-10 w-full rounded-full border border-(--c-text)/20 bg-(--c-text)/5 px-4 text-base outline-none placeholder:text-(--c-text)/50 focus:border-(--c-primary)"
+      className="h-10 w-full rounded-md border border-(--c-text)/15 bg-transparent px-3 text-base outline-none placeholder:text-(--c-text)/50 focus:border-(--c-primary)"
     />
   );
 }

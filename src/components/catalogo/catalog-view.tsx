@@ -35,7 +35,7 @@ export function CatalogView({ catalog }: { catalog: PublicCatalog }) {
   const place = [catalog.address, catalog.city].filter(Boolean).join(" · ");
   const allNames = catalog.sections.flatMap((section) => section.items.map((item) => item.name));
   const outline =
-    "inline-flex h-10 items-center gap-2 rounded-full border border-(--c-text)/25 px-4 text-sm font-medium";
+    "inline-flex h-11 items-center gap-2 rounded-md border border-(--c-text)/15 px-3.5 text-sm";
 
   return (
     <div style={theme} className="flex flex-1 flex-col bg-(--c-bg) text-(--c-text)">
@@ -47,38 +47,38 @@ export function CatalogView({ catalog }: { catalog: PublicCatalog }) {
               src={catalog.coverUrl}
               alt=""
               fetchPriority="high"
-              className="mx-auto aspect-[3/1] w-full max-w-3xl object-cover sm:mt-4 sm:rounded-3xl"
+              className="mx-auto aspect-[3/1] w-full max-w-3xl object-cover sm:mt-4 sm:rounded-xl"
             />
           ) : (
-            <div className="h-24 bg-(--c-primary)/15" />
+            <div className="h-20 bg-(--c-primary)/20" />
           )}
           <div className="mx-auto w-full max-w-3xl px-4">
-            <div className="-mt-12 flex items-end justify-between gap-4">
-              {catalog.logoUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={catalog.logoUrl}
-                  alt=""
-                  className="size-24 shrink-0 rounded-full border-4 border-(--c-bg) bg-(--c-bg) object-cover"
-                />
-              ) : (
-                <span
-                  aria-hidden
-                  className="flex size-24 shrink-0 items-center justify-center rounded-full border-4 border-(--c-bg) bg-(--c-primary) text-4xl font-bold text-(--c-on-primary)"
-                >
-                  {catalog.name.trim().charAt(0).toUpperCase()}
-                </span>
-              )}
-            </div>
-            <h1 className="mt-3 text-2xl font-bold tracking-tight sm:text-3xl">{catalog.name}</h1>
+            {catalog.logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={catalog.logoUrl}
+                alt=""
+                className="-mt-9 size-18 rounded-xl border-4 border-(--c-bg) bg-(--c-bg) object-cover"
+              />
+            ) : (
+              <span
+                aria-hidden
+                className="-mt-9 flex size-18 items-center justify-center rounded-xl border-4 border-(--c-bg) bg-(--c-primary) text-3xl font-semibold text-(--c-on-primary)"
+              >
+                {catalog.name.trim().charAt(0).toUpperCase()}
+              </span>
+            )}
+            <h1 className="mt-3 text-[28px] leading-tight font-semibold tracking-tight sm:text-4xl">
+              {catalog.name}
+            </h1>
             {catalog.description && (
-              <p className="mt-2 max-w-prose text-sm whitespace-pre-line opacity-80 sm:text-base">
+              <p className="mt-1.5 max-w-prose text-sm whitespace-pre-line opacity-75 sm:text-base">
                 {catalog.description}
               </p>
             )}
             {place && (
-              <p className="mt-2 flex items-center gap-1.5 text-sm opacity-70">
-                <MapPinIcon className="size-4 shrink-0" />
+              <p className="mt-2 flex items-center gap-1.5 font-mono text-[11px] tracking-wide uppercase opacity-60">
+                <MapPinIcon className="size-3.5 shrink-0" />
                 {place}
               </p>
             )}
@@ -88,10 +88,10 @@ export function CatalogView({ catalog }: { catalog: PublicCatalog }) {
                   href={`https://wa.me/${catalog.whatsapp}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex h-10 items-center gap-2 rounded-full bg-(--c-primary) px-4 text-sm font-semibold text-(--c-on-primary)"
+                  className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-md bg-(--c-primary) px-4 text-sm font-medium text-(--c-on-primary) sm:flex-none"
                 >
                   <MessageCircleIcon className="size-4" />
-                  Chamar no WhatsApp
+                  Falar no WhatsApp
                 </a>
               )}
               {catalog.instagram && (
@@ -100,15 +100,16 @@ export function CatalogView({ catalog }: { catalog: PublicCatalog }) {
                   target="_blank"
                   rel="noopener noreferrer"
                   className={outline}
+                  aria-label="Instagram"
                 >
                   <AtSignIcon className="size-4" />
-                  Instagram
+                  <span className="max-sm:sr-only">Instagram</span>
                 </a>
               )}
               {catalog.contactEmail && (
-                <a href={`mailto:${catalog.contactEmail}`} className={outline}>
+                <a href={`mailto:${catalog.contactEmail}`} className={outline} aria-label="E-mail">
                   <MailIcon className="size-4" />
-                  E-mail
+                  <span className="max-sm:sr-only">E-mail</span>
                 </a>
               )}
             </div>
@@ -116,21 +117,23 @@ export function CatalogView({ catalog }: { catalog: PublicCatalog }) {
         </header>
 
         {allNames.length > 0 && (
-          <div className="sticky top-0 z-10 mt-6 border-b border-(--c-text)/10 bg-(--c-bg)/90 backdrop-blur">
-            <div className="mx-auto grid w-full max-w-3xl gap-2 px-4 py-2.5">
+          <div className="sticky top-0 z-10 mt-6 border-y border-(--c-text)/12 bg-(--c-bg)/95 backdrop-blur">
+            <div className="mx-auto grid w-full max-w-3xl gap-1 px-4 pt-2.5">
               <SearchInput />
-              {catalog.nav.length > 1 && (
-                <nav aria-label="Categorias" className="-mx-4 flex gap-2 overflow-x-auto px-4">
+              {catalog.nav.length > 1 ? (
+                <nav aria-label="Categorias" className="-mx-4 flex gap-5 overflow-x-auto px-4">
                   {catalog.nav.map((entry) => (
                     <a
                       key={entry.sectionId}
                       href={`#c-${entry.sectionId}`}
-                      className="shrink-0 rounded-full border border-(--c-text)/20 px-3 py-1 text-sm font-medium"
+                      className="shrink-0 border-b-2 border-transparent py-2.5 text-sm opacity-75 hover:border-(--c-text) hover:opacity-100"
                     >
                       {entry.name}
                     </a>
                   ))}
                 </nav>
+              ) : (
+                <div className="h-2.5" />
               )}
             </div>
           </div>
@@ -152,13 +155,16 @@ export function CatalogView({ catalog }: { catalog: PublicCatalog }) {
               className="scroll-mt-32"
             >
               {section.name && (
-                <div className="mb-4">
-                  {section.ancestors.length > 0 && (
-                    <p className="text-xs font-medium tracking-wide uppercase opacity-60">
-                      {section.ancestors.join(" › ")}
-                    </p>
-                  )}
-                  <h2 className="text-xl font-bold tracking-tight">{section.name}</h2>
+                <div className="mb-4 flex items-end justify-between gap-3">
+                  <div>
+                    {section.ancestors.length > 0 && (
+                      <p className="font-mono text-[11px] tracking-[0.08em] uppercase opacity-60">
+                        {section.ancestors.join(" › ")}
+                      </p>
+                    )}
+                    <h2 className="text-xl font-semibold tracking-tight">{section.name}</h2>
+                  </div>
+                  <span className="font-mono text-xs opacity-50">{section.items.length}</span>
                 </div>
               )}
               <Layout slug={catalog.slug} items={section.items} />
@@ -166,15 +172,12 @@ export function CatalogView({ catalog }: { catalog: PublicCatalog }) {
           ))}
         </main>
 
-        <footer className="border-t border-(--c-text)/10">
-          <div className="mx-auto grid w-full max-w-3xl gap-1 px-4 py-8 text-center text-sm">
-            <p className="font-semibold">{catalog.name}</p>
-            {place && <p className="opacity-70">{place}</p>}
-            <p className="mt-4 text-xs opacity-60">
-              <Link href="/" prefetch={false}>
-                Feito com SeuSistema
-              </Link>
-            </p>
+        <footer className="border-t border-(--c-text)/12">
+          <div className="mx-auto flex w-full max-w-3xl flex-wrap items-center justify-between gap-2 px-4 py-6 text-sm">
+            <span className="font-medium">{catalog.name}</span>
+            <Link href="/" prefetch={false} className="font-mono text-[11px] uppercase opacity-50">
+              Feito com SeuSistema
+            </Link>
           </div>
         </footer>
 
