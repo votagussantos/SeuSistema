@@ -19,11 +19,13 @@ export type Catalog = {
   address: string | null;
   city: string | null;
   published: boolean;
+  segment: string | null;
 };
 
 export type Category = {
   id: string;
   catalog_id: string;
+  parent_id: string | null;
   name: string;
   position: number;
 };
@@ -42,6 +44,15 @@ export type Item = {
   duration_minutes: number | null;
   available: boolean;
   position: number;
+};
+
+/** Dados internos do item: só o dono vê. */
+export type ItemPrivate = {
+  item_id: string;
+  cost_cents: number | null;
+  stock_quantity: number | null;
+  stock_min: number | null;
+  abc_class: "A" | "B" | "C" | null;
 };
 
 export type ItemImage = {

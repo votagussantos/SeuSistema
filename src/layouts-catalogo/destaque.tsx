@@ -1,34 +1,39 @@
 import { durationLabel, ItemPrice } from "@/components/catalogo/item-price";
 import { ItemTrigger } from "@/components/catalogo/item-trigger";
-import { ItemPhoto, SoldOut, type LayoutProps } from "./shared";
+import { ItemPhoto, type LayoutProps } from "./shared";
 
-// Fotos grandes, um item por linha.
+// Fotos grandes: um cartão por linha no celular, dois em telas largas.
 export function LayoutDestaque({ slug, items }: LayoutProps) {
   return (
-    <ul className="space-y-8">
+    <ul className="grid gap-5 sm:grid-cols-2">
       {items.map((item) => (
-        <li key={item.id}>
-          <ItemTrigger slug={slug} item={item} className="block w-full text-left">
-            <ItemPhoto item={item} className="aspect-[4/3] w-full rounded-2xl" />
-            <span className="mt-3 flex items-start justify-between gap-4">
-              <span className="text-lg leading-snug font-semibold">{item.name}</span>
-              <span className="shrink-0 text-base">
-                <ItemPrice item={item} />
-              </span>
-            </span>
+        <ItemTrigger
+          key={item.id}
+          slug={slug}
+          item={item}
+          className="flex h-full w-full flex-col overflow-hidden rounded-3xl bg-(--c-text)/5 text-left transition-transform active:scale-[0.99]"
+        >
+          <ItemPhoto item={item} className="aspect-[4/3] w-full" />
+          <span className="flex flex-1 flex-col gap-2 p-4">
+            <span className="text-lg leading-snug font-semibold">{item.name}</span>
             {item.description && (
-              <span className="mt-1 line-clamp-3 block text-sm opacity-70">
-                {item.description}
-              </span>
+              <span className="line-clamp-2 text-sm opacity-70">{item.description}</span>
             )}
-            <span className="mt-2 flex flex-wrap items-center gap-2 text-sm">
-              {item.durationMinutes != null && (
-                <span className="opacity-70">{durationLabel(item.durationMinutes)}</span>
+            <span className="mt-auto flex items-center justify-between gap-3 pt-2">
+              <span className="text-base">
+                <ItemPrice item={item} />
+                {item.durationMinutes != null && (
+                  <span className="text-sm opacity-70"> · {durationLabel(item.durationMinutes)}</span>
+                )}
+              </span>
+              {item.available && (
+                <span className="shrink-0 rounded-full bg-(--c-primary) px-4 py-2 text-sm font-semibold text-(--c-on-primary)">
+                  Ver detalhes
+                </span>
               )}
-              <SoldOut item={item} />
             </span>
-          </ItemTrigger>
-        </li>
+          </span>
+        </ItemTrigger>
       ))}
     </ul>
   );

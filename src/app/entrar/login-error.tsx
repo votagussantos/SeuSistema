@@ -11,7 +11,7 @@ export function LoginError() {
   const code = useSearchParams().get("erro");
   if (!code) return null;
   return (
-    <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+    <p role="alert" className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
       {messages[code] ?? "Não foi possível entrar. Tente novamente."}
     </p>
   );

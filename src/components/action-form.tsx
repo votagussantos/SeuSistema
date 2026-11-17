@@ -1,22 +1,27 @@
 "use client";
 
 import { useState, useTransition, type ReactNode } from "react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 import type { ActionState } from "@/lib/types";
-import { ui } from "@/lib/ui";
 
 // Formulário que chama uma Server Action sem limpar os campos em caso de erro.
 export function ActionForm({
   action,
   children,
   submitLabel = "Salvar",
-  className = "space-y-4",
+  className = "grid gap-4",
+  submitClassName,
+  resetOnSuccess = false,
 }: {
   action: (formData: FormData) => Promise<ActionState>;
   children: ReactNode;
   submitLabel?: string;
   className?: string;
+  submitClassName?: string;
+  resetOnSuccess?: boolean;
 }) {
-  const [state, setState] = useState<ActionState>(null);
+  const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   return (
@@ -24,25 +29,24 @@ export function ActionForm({
       className={className}
       onSubmit={(event) => {
         event.preventDefault();
-        const formData = new FormData(event.currentTarget);
+        const form = event.currentTarget;
+        const formData = new FormData(form);
         startTransition(async () => {
-          setState(await action(formData));
+          const state = await action(formData);
+          setError(state?.error ?? null);
+          if (state?.ok) toast.success(state.ok);
+          if (state?.ok && resetOnSuccess) form.reset();
         });
       }}
     >
       {children}
       <div className="flex flex-wrap items-center gap-3">
-        <button type="submit" disabled={pending} className={ui.button}>
+        <Button type="submit" disabled={pending} className={submitClassName}>
           {pending ? "Aguarde…" : submitLabel}
-        </button>
-        {state?.error && (
-          <p role="alert" className="text-sm text-red-700">
-            {state.error}
-          </p>
-        )}
-        {state?.ok && (
-          <p role="status" className="text-sm text-emerald-700">
-            {state.ok}
+        </Button>
+        {error && (
+          <p role="alert" className="text-sm text-destructive">
+            {error}
           </p>
         )}
       </div>

@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { SUPABASE_KEY, SUPABASE_URL } from "@/lib/supabase/env";
 
-// Roda só no painel: renova a sessão e barra visitantes sem login.
+// Roda só no painel e na administração: renova a sessão e barra visitantes sem login.
 // É uma checagem otimista; a autorização real é feita pelo RLS no banco.
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -28,5 +28,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/painel/:path*"],
+  matcher: ["/painel/:path*", "/admin/:path*"],
 };

@@ -4,27 +4,33 @@ import { useState, type ReactNode } from "react";
 import { useCart } from "@/lib/cart";
 import type { PublicItem } from "@/lib/public-catalog";
 import { durationLabel, ItemPrice } from "./item-price";
+import { useSearchMatch } from "./search";
 
-// Envolve o cartão do item (renderizado no servidor) e abre os detalhes ao tocar.
+// Item da lista: o cartão vem pronto do servidor; aqui ficam o toque, a busca e os detalhes.
 export function ItemTrigger({
   slug,
   item,
   className,
+  itemClassName,
   children,
 }: {
   slug: string;
   item: PublicItem;
+  /** Classes do botão que envolve o cartão. */
   className?: string;
+  /** Classes do <li>. */
+  itemClassName?: string;
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
+  const matches = useSearchMatch();
   return (
-    <>
+    <li className={itemClassName} hidden={!matches(item.name)}>
       <button type="button" className={className} onClick={() => setOpen(true)}>
         {children}
       </button>
       {open && <ItemDialog slug={slug} item={item} onClose={() => setOpen(false)} />}
-    </>
+    </li>
   );
 }
 

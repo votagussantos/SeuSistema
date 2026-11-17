@@ -1,22 +1,29 @@
 import { ItemPrice } from "@/components/catalogo/item-price";
 import { ItemTrigger } from "@/components/catalogo/item-trigger";
-import { ItemPhoto, SoldOut, type LayoutProps } from "./shared";
+import { AddHint, ItemPhoto, type LayoutProps } from "./shared";
 
-// Vitrine em colunas: foto quadrada, nome e preço.
+// Vitrine em colunas: cartões com foto quadrada, nome e preço.
 export function LayoutGrade({ slug, items }: LayoutProps) {
   return (
-    <ul className="grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3">
+    <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
       {items.map((item) => (
-        <li key={item.id}>
-          <ItemTrigger slug={slug} item={item} className="block w-full text-left">
-            <ItemPhoto item={item} className="aspect-square w-full rounded-xl" />
-            <span className="mt-2 block text-sm leading-snug font-medium">{item.name}</span>
-            <span className="mt-1 flex flex-wrap items-center gap-2 text-sm">
+        <ItemTrigger
+          key={item.id}
+          slug={slug}
+          item={item}
+          className="flex h-full w-full flex-col overflow-hidden rounded-2xl bg-(--c-text)/5 text-left transition-transform active:scale-[0.98]"
+        >
+          <span className="relative block">
+            <ItemPhoto item={item} className="aspect-square w-full" />
+            {item.available && <AddHint className="absolute right-2 bottom-2" />}
+          </span>
+          <span className="flex flex-1 flex-col gap-1 p-3">
+            <span className="line-clamp-2 text-sm leading-snug font-medium">{item.name}</span>
+            <span className="mt-auto text-sm">
               <ItemPrice item={item} />
-              <SoldOut item={item} />
             </span>
-          </ItemTrigger>
-        </li>
+          </span>
+        </ItemTrigger>
       ))}
     </ul>
   );

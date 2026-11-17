@@ -43,3 +43,25 @@ export const getMyPlan = cache(async (): Promise<Plan> => {
   if (error) throw new Error(error.message);
   return plan;
 });
+
+// Catálogo suspenso pela administração: fica fora do ar mesmo publicado.
+export const getMySuspension = cache(async (catalogId: string) => {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("catalog_suspensions")
+    .select("reason")
+    .eq("catalog_id", catalogId)
+    .maybeSingle();
+  return data;
+});
+
+export const isAdmin = cache(async (): Promise<boolean> => {
+  const user = await requireUser();
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("admins")
+    .select("user_id")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  return Boolean(data);
+});

@@ -1,7 +1,7 @@
 "use client";
 
 import { ImageUploader } from "@/components/image-uploader";
-import { setCatalogImage } from "../actions";
+import { setCatalogImage } from "../../actions";
 
 export function CatalogImageField({
   kind,
@@ -14,7 +14,7 @@ export function CatalogImageField({
 }) {
   const isLogo = kind === "logo";
   return (
-    <div className="space-y-3">
+    <div className="grid gap-3">
       {currentUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -22,12 +22,18 @@ export function CatalogImageField({
           alt={isLogo ? "Foto atual" : "Capa atual"}
           className={
             isLogo
-              ? "size-24 rounded-full border border-zinc-200 object-cover"
-              : "aspect-[3/1] w-full rounded-lg border border-zinc-200 object-cover"
+              ? "size-24 rounded-full border object-cover"
+              : "aspect-[3/1] w-full rounded-lg border object-cover"
           }
         />
       ) : (
-        <p className="text-sm text-zinc-500">Nenhuma imagem enviada.</p>
+        <div
+          className={
+            isLogo
+              ? "size-24 rounded-full border border-dashed bg-muted"
+              : "aspect-[3/1] w-full rounded-lg border border-dashed bg-muted"
+          }
+        />
       )}
       <ImageUploader
         folder={`${catalogId}/${kind}`}

@@ -4,8 +4,10 @@ import { revalidatePath, updateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireUser } from "@/lib/auth";
-import { requireCatalog } from "@/lib/data";
+import { getMyPlan, requireCatalog } from "@/lib/data";
 import { parseBRL } from "@/lib/money";
+import { presets } from "@/lib/presets";
+import { getSegment, segments } from "@/lib/segments";
 import { catalogTag } from "@/lib/public-catalog";
 import { MEDIA_BUCKET } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
@@ -32,6 +34,9 @@ function dbMessage(error: DbError): string {
     return "Você atingiu o limite de itens do seu plano.";
   if (error.message.includes("plan_limit_images"))
     return "Você atingiu o limite de fotos por item do seu plano.";
+  if (error.message.includes("category_depth_limit"))
+    return "As categorias podem ter no máximo 5 níveis.";
+  if (error.message.includes("category_cycle")) return "Categoria inválida.";
   if (error.code === "23505") return "Esse endereço já está em uso. Escolha outro.";
   if (error.message.includes("catalogs_slug_not_reserved"))
     return "Esse endereço é reservado. Escolha outro.";
@@ -51,6 +56,10 @@ function slugify(input: string) {
 // Catálogo
 // ---------------------------------------------------------------------------
 
+const segmentId = z
+  .string()
+  .refine((id) => segments.some((segment) => segment.id === id), "Escolha o segmento do seu negócio.");
+
 const createCatalogSchema = z.object({
   name: z.string().min(1, "Informe o nome do negócio.").max(80, "Nome muito longo."),
   slug: z
@@ -59,6 +68,7 @@ const createCatalogSchema = z.object({
       /^[a-z0-9][a-z0-9-]{1,38}[a-z0-9]$/,
       "O endereço deve ter de 3 a 40 letras, números ou hífens.",
     ),
+  segment: segmentId,
 });
 
 export async function createCatalog(formData: FormData): Promise<ActionState> {
@@ -67,17 +77,44 @@ export async function createCatalog(formData: FormData): Promise<ActionState> {
   const parsed = createCatalogSchema.safeParse({
     name,
     slug: slugify(text(formData, "slug") || name),
+    segment: text(formData, "segment"),
   });
+  if (!parsed.success) return { error: firstIssue(parsed.error) };
+
+  // O segmento já define um visual de partida; o dono muda depois em Aparência.
+  const segment = getSegment(parsed.data.segment);
+  const preset = presets.find((p) => p.id === segment.presetId);
+  const supabase = await createClient();
+  const { error } = await supabase.from("catalogs").insert({
+    ...parsed.data,
+    owner_id: user.id,
+    ...(preset && {
+      layout: preset.layout,
+      color_primary: preset.primary,
+      color_background: preset.background,
+      color_text: preset.text,
+    }),
+  });
+  if (error) return { error: dbMessage(error) };
+
+  refresh(parsed.data.slug);
+  redirect(segment.categories.length > 0 ? "/painel/sugestoes" : "/painel");
+}
+
+export async function setSegment(formData: FormData): Promise<ActionState> {
+  const catalog = await requireCatalog();
+  const parsed = segmentId.safeParse(text(formData, "segment"));
   if (!parsed.success) return { error: firstIssue(parsed.error) };
 
   const supabase = await createClient();
   const { error } = await supabase
     .from("catalogs")
-    .insert({ ...parsed.data, owner_id: user.id });
+    .update({ segment: parsed.data })
+    .eq("id", catalog.id);
   if (error) return { error: dbMessage(error) };
 
-  refresh(parsed.data.slug);
-  return { ok: "Catálogo criado." };
+  refresh(catalog.slug);
+  redirect(getSegment(parsed.data).categories.length > 0 ? "/painel/sugestoes" : "/painel");
 }
 
 const infoSchema = z.object({
@@ -198,25 +235,248 @@ const categoryName = z
   .max(60, "Nome muito longo.");
 const uuid = z.uuid("Identificador inválido.");
 
+const MAX_CATEGORIES = 100;
+const PATH_SEPARATOR = " > ";
+
+// Garante que cada caminho ("Bebidas" > "Sucos") exista, criando só o que falta.
+// Devolve o id da última categoria de cada caminho.
+async function ensureCategoryPaths(
+  catalogId: string,
+  paths: string[][],
+  rootParentId: string | null = null,
+): Promise<{ ids: Map<string, string>; created: number; error?: string }> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("categories")
+    .select("id, parent_id, name")
+    .eq("catalog_id", catalogId);
+  const all = data ?? [];
+  const ids = new Map<string, string>();
+  let created = 0;
+  if (rootParentId && !all.some((c) => c.id === rootParentId)) {
+    return { ids, created, error: "Categoria principal não encontrada." };
+  }
+
+  const key = (parentId: string | null, name: string) =>
+    `${parentId ?? ""}|${name.toLocaleLowerCase("pt-BR")}`;
+  const byKey = new Map(all.map((c) => [key(c.parent_id, c.name), c.id as string]));
+  const siblingCount = new Map<string, number>();
+  for (const c of all) {
+    siblingCount.set(c.parent_id ?? "", (siblingCount.get(c.parent_id ?? "") ?? 0) + 1);
+  }
+  let total = all.length;
+
+  for (const path of paths) {
+    let parentId = rootParentId;
+    for (const name of path) {
+      let id = byKey.get(key(parentId, name));
+      if (!id) {
+        if (total >= MAX_CATEGORIES) {
+          return { ids, created, error: `Limite de ${MAX_CATEGORIES} categorias atingido.` };
+        }
+        const position = siblingCount.get(parentId ?? "") ?? 0;
+        const { data: row, error } = await supabase
+          .from("categories")
+          .insert({ catalog_id: catalogId, parent_id: parentId, name, position })
+          .select("id")
+          .single();
+        if (error) return { ids, created, error: dbMessage(error) };
+        id = row.id as string;
+        byKey.set(key(parentId, name), id);
+        siblingCount.set(parentId ?? "", position + 1);
+        total += 1;
+        created += 1;
+      }
+      parentId = id;
+    }
+    if (parentId) ids.set(path.join(PATH_SEPARATOR), parentId);
+  }
+  return { ids, created };
+}
+
+function createdMessage(created: number): ActionState {
+  if (created === 0) return { ok: "Essas categorias já existiam." };
+  return { ok: created === 1 ? "Categoria criada." : `${created} categorias criadas.` };
+}
+
+// Uma categoria, opcionalmente já com subcategorias (separadas por vírgula).
 export async function createCategory(formData: FormData): Promise<ActionState> {
   const catalog = await requireCatalog();
   const name = categoryName.safeParse(text(formData, "name"));
   if (!name.success) return { error: firstIssue(name.error) };
+  const parentText = text(formData, "parent_id");
+  const parent = parentText ? uuid.safeParse(parentText) : null;
+  if (parent && !parent.success) return { error: firstIssue(parent.error) };
+
+  const subs = [];
+  for (const part of text(formData, "subcategories").split(",")) {
+    if (!part.trim()) continue;
+    const sub = categoryName.safeParse(part.trim());
+    if (!sub.success) return { error: firstIssue(sub.error) };
+    subs.push(sub.data);
+  }
+  if (subs.length > 30) return { error: "Adicione no máximo 30 subcategorias por vez." };
+
+  const paths = subs.length > 0 ? subs.map((sub) => [name.data, sub]) : [[name.data]];
+  const result = await ensureCategoryPaths(catalog.id, paths, parent?.data ?? null);
+  if (result.created > 0) refresh(catalog.slug);
+  if (result.error) return { error: result.error };
+  return createdMessage(result.created);
+}
+
+// Várias de uma vez: uma por linha, com ">" para subcategorias.
+export async function createCategoriesBatch(formData: FormData): Promise<ActionState> {
+  const catalog = await requireCatalog();
+  const lines = String(formData.get("lines") ?? "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+  if (lines.length === 0) return { error: "Escreva pelo menos uma categoria." };
+  if (lines.length > 60) return { error: "Adicione no máximo 60 linhas por vez." };
+
+  const paths: string[][] = [];
+  for (const line of lines) {
+    const path = [];
+    for (const part of line.split(">")) {
+      const parsed = categoryName.safeParse(part.trim());
+      if (!parsed.success) return { error: `Linha “${line}”: ${firstIssue(parsed.error)}` };
+      path.push(parsed.data);
+    }
+    if (path.length > 5) return { error: `Linha “${line}”: o máximo são 5 níveis.` };
+    paths.push(path);
+  }
+
+  const result = await ensureCategoryPaths(catalog.id, paths);
+  if (result.created > 0) refresh(catalog.slug);
+  if (result.error) return { error: result.error };
+  return createdMessage(result.created);
+}
+
+// Categorias sugeridas para o segmento, escolhidas na tela de sugestões.
+export async function addSuggestedCategories(formData: FormData): Promise<ActionState> {
+  const catalog = await requireCatalog();
+  const chosen = new Set(formData.getAll("path").map(String));
+  const paths = getSegment(catalog.segment).categories.filter((path) =>
+    chosen.has(path.join(PATH_SEPARATOR)),
+  );
+  if (paths.length === 0) return { error: "Marque pelo menos uma categoria." };
+
+  const result = await ensureCategoryPaths(catalog.id, paths);
+  if (result.created > 0) refresh(catalog.slug);
+  if (result.error) return { error: result.error };
+  return createdMessage(result.created);
+}
+
+// Item sugerido para o segmento: a lista vem do servidor, o cliente só informa qual e o preço.
+export async function addSuggestedItem(formData: FormData): Promise<ActionState> {
+  const catalog = await requireCatalog();
+  const segment = getSegment(catalog.segment);
+  const suggestion = segment.items[Number(text(formData, "index"))];
+  if (!suggestion) return { error: "Sugestão inválida." };
+
+  const price = parseBRL(text(formData, "price"));
+  if (Number.isNaN(price)) return { error: "Preço inválido. Ex.: 49,90" };
 
   const supabase = await createClient();
-  const { count } = await supabase
-    .from("categories")
-    .select("id", { count: "exact", head: true })
+  const { data: existing } = await supabase
+    .from("items")
+    .select("name")
     .eq("catalog_id", catalog.id);
-  if ((count ?? 0) >= 50) return { error: "Limite de 50 categorias atingido." };
+  const items = existing ?? [];
+  if (items.some((item) => item.name.toLowerCase() === suggestion.name.toLowerCase())) {
+    return { error: "Esse item já está no seu catálogo." };
+  }
 
-  const { error } = await supabase
-    .from("categories")
-    .insert({ catalog_id: catalog.id, name: name.data, position: count ?? 0 });
+  const categories = await ensureCategoryPaths(catalog.id, [suggestion.category]);
+  if (categories.error) return { error: categories.error };
+
+  const type = suggestion.type ?? segment.itemType;
+  const { error } = await supabase.from("items").insert({
+    catalog_id: catalog.id,
+    category_id: categories.ids.get(suggestion.category.join(PATH_SEPARATOR)) ?? null,
+    type,
+    name: suggestion.name,
+    price_cents: price,
+    price_on_request: price === null,
+    duration_minutes: type === "service" ? (suggestion.durationMinutes ?? null) : null,
+    position: items.length,
+  });
   if (error) return { error: dbMessage(error) };
 
   refresh(catalog.slug);
-  return null;
+  return { ok: `“${suggestion.name}” adicionado.` };
+}
+
+// Troca um registro de lugar com o vizinho e renumera as posições do grupo.
+async function reorder(
+  table: "categories" | "items",
+  catalogId: string,
+  rows: { id: string }[],
+  id: string,
+  direction: string,
+) {
+  const from = rows.findIndex((row) => row.id === id);
+  const to = direction === "up" ? from - 1 : from + 1;
+  if (from < 0 || to < 0 || to >= rows.length) return;
+  const ordered = [...rows];
+  [ordered[from], ordered[to]] = [ordered[to], ordered[from]];
+
+  const supabase = await createClient();
+  await Promise.all(
+    ordered.map((row, position) =>
+      supabase.from(table).update({ position }).eq("id", row.id).eq("catalog_id", catalogId),
+    ),
+  );
+}
+
+export async function moveCategory(formData: FormData) {
+  const catalog = await requireCatalog();
+  const id = uuid.safeParse(text(formData, "id"));
+  if (!id.success) return;
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("categories")
+    .select("id, parent_id")
+    .eq("catalog_id", catalog.id)
+    .order("position")
+    .order("created_at");
+  const all = data ?? [];
+  const current = all.find((c) => c.id === id.data);
+  if (!current) return;
+  await reorder(
+    "categories",
+    catalog.id,
+    all.filter((c) => c.parent_id === current.parent_id),
+    id.data,
+    text(formData, "direction"),
+  );
+  refresh(catalog.slug);
+}
+
+export async function moveItem(formData: FormData) {
+  const catalog = await requireCatalog();
+  const id = uuid.safeParse(text(formData, "id"));
+  if (!id.success) return;
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("items")
+    .select("id, category_id")
+    .eq("catalog_id", catalog.id)
+    .order("position")
+    .order("created_at");
+  const all = data ?? [];
+  const current = all.find((i) => i.id === id.data);
+  if (!current) return;
+  await reorder(
+    "items",
+    catalog.id,
+    all.filter((i) => i.category_id === current.category_id),
+    id.data,
+    text(formData, "direction"),
+  );
+  refresh(catalog.slug);
 }
 
 export async function renameCategory(formData: FormData): Promise<ActionState> {
@@ -275,12 +535,32 @@ const itemSchema = z.object({
     .nullable(),
 });
 
+// "" -> null; número inteiro válido -> número; qualquer outra coisa -> undefined.
+function optionalInteger(input: string): number | null | undefined {
+  if (!input) return null;
+  return /^\d{1,6}$/.test(input) ? Number(input) : undefined;
+}
+
 export async function saveItem(formData: FormData): Promise<ActionState> {
   const catalog = await requireCatalog();
 
   const idText = text(formData, "id");
   const id = idText ? uuid.safeParse(idText) : null;
   if (id && !id.success) return { error: firstIssue(id.error) };
+  // Na criação, o id vem pronto do formulário: as fotos já foram enviadas para a pasta dele.
+  const newId = id ? null : uuid.safeParse(text(formData, "new_id"));
+  if (newId && !newId.success) return { error: firstIssue(newId.error) };
+
+  // Dados internos (só o dono vê)
+  const cost = parseBRL(text(formData, "cost"));
+  if (Number.isNaN(cost)) return { error: "Custo inválido. Ex.: 12,50" };
+  const stockQuantity = optionalInteger(text(formData, "stock_quantity"));
+  const stockMin = optionalInteger(text(formData, "stock_min"));
+  if (stockQuantity === undefined || stockMin === undefined) {
+    return { error: "Estoque inválido. Use apenas números." };
+  }
+  const abc = z.enum(["A", "B", "C"]).nullable().safeParse(optional(formData, "abc_class"));
+  if (!abc.success) return { error: "Curva ABC inválida." };
 
   const durationText = text(formData, "duration_minutes");
   const parsed = itemSchema.safeParse({
@@ -346,9 +626,13 @@ export async function saveItem(formData: FormData): Promise<ActionState> {
     if (!data) return { error: "Item não encontrado." };
     itemId = data.id;
   } else {
+    const { count } = await supabase
+      .from("items")
+      .select("id", { count: "exact", head: true })
+      .eq("catalog_id", catalog.id);
     const { data, error } = await supabase
       .from("items")
-      .insert({ ...row, catalog_id: catalog.id })
+      .insert({ ...row, id: newId!.data, catalog_id: catalog.id, position: count ?? 0 })
       .select("id")
       .single();
     if (error) return { error: dbMessage(error) };
@@ -367,6 +651,38 @@ export async function saveItem(formData: FormData): Promise<ActionState> {
       variationRows.map((v) => ({ ...v, item_id: itemId, catalog_id: catalog.id })),
     );
     if (error) return { error: dbMessage(error) };
+  }
+
+  const { error: privateError } = await supabase.from("item_private").upsert({
+    item_id: itemId,
+    catalog_id: catalog.id,
+    cost_cents: cost,
+    stock_quantity: stockQuantity,
+    stock_min: stockMin,
+    abc_class: abc.data,
+  });
+  if (privateError) return { error: dbMessage(privateError) };
+
+  // Fotos escolhidas antes de o item existir.
+  if (!id) {
+    let paths: string[] = [];
+    try {
+      const parsedPaths = z.array(z.string()).max(20).safeParse(JSON.parse(text(formData, "images") || "[]"));
+      if (parsedPaths.success) paths = parsedPaths.data;
+    } catch {
+      // Lista inválida: cria o item sem fotos.
+    }
+    const folder = `${catalog.id}/items/${itemId}/`;
+    paths = paths.filter((path) => path.startsWith(folder) && isOwnMediaPath(path, catalog.id));
+    const plan = await getMyPlan();
+    const kept = paths.slice(0, plan.max_images_per_item);
+    const extra = paths.slice(plan.max_images_per_item);
+    if (kept.length > 0) {
+      await supabase.from("item_images").insert(
+        kept.map((path, position) => ({ item_id: itemId, catalog_id: catalog.id, path, position })),
+      );
+    }
+    if (extra.length > 0) await supabase.storage.from(MEDIA_BUCKET).remove(extra);
   }
 
   refresh(catalog.slug);

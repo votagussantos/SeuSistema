@@ -1,10 +1,11 @@
 "use client";
 
+import { ImagePlusIcon } from "lucide-react";
 import { useRef, useState, useTransition } from "react";
+import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 import { MEDIA_BUCKET } from "@/lib/supabase/env";
 import type { ActionState } from "@/lib/types";
-import { ui } from "@/lib/ui";
 
 const MAX_BYTES = 1024 * 1024;
 
@@ -80,16 +81,17 @@ export function ImageUploader({
           if (file) handleFile(file);
         }}
       />
-      <button
+      <Button
         type="button"
+        variant="outline"
         disabled={pending}
-        className={ui.buttonSecondary}
         onClick={() => inputRef.current?.click()}
       >
+        <ImagePlusIcon />
         {pending ? "Enviando…" : label}
-      </button>
+      </Button>
       {error && (
-        <p role="alert" className="mt-2 text-sm text-red-700">
+        <p role="alert" className="mt-2 text-sm text-destructive">
           {error}
         </p>
       )}
